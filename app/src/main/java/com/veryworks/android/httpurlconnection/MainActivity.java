@@ -1,11 +1,18 @@
 package com.veryworks.android.httpurlconnection;
 
 import android.os.Bundle;
+import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.gson.Gson;
 import com.veryworks.android.httpurlconnection.domain.Data;
 import com.veryworks.android.httpurlconnection.domain.Row;
@@ -13,7 +20,8 @@ import com.veryworks.android.httpurlconnection.domain.Row;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements TaskInterface{
+public class MainActivity extends AppCompatActivity
+        implements TaskInterface, OnMapReadyCallback{
 
     /* 기초정보
         url : http://openAPI.seoul.go.kr:8088/4c425976676b6f643437665377554c/json/SearchPublicToiletPOIService/1/5/
@@ -48,15 +56,17 @@ public class MainActivity extends AppCompatActivity implements TaskInterface{
 
         // 데이터 - 위에서 공간 할당 됨
         // 아답터
-        adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1,datas);
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1,datas);
         listView.setAdapter(adapter);
 
-        // 최초 호출시 첫번째 집합을 불러온다.
-        setPage(1);
 
-        setUrl(pageBegin, pageEnd);
+        // 맵을 세팅
+        FragmentManager manager = getSupportFragmentManager();
+        SupportMapFragment mapFragment = (SupportMapFragment) manager.findFragmentById(R.id.mapView);
+        // 로드되면 onReady 호출하도록
+        mapFragment.getMapAsync(this);
 
-        Remote.newTask(this);
+
     }
 
     private void setPage(int page){
@@ -98,8 +108,32 @@ public class MainActivity extends AppCompatActivity implements TaskInterface{
         // 네트웍에서 가져온 데이터를 꺼내서 datas에 담아준다.
         for(Row row : rows){
             datas.add(row.getFNAME());
+
+            // row를 돌면서 화장실 하나하나의 좌표를 생성한다.
+            MarkerOptions marker = new MarkerOptions();
+            LatLng tempCoord = new LatLng(row.getY_WGS84(), row.getX_WGS84());
+            marker.position(tempCoord);
+            marker.title(row.getFNAME());
+
+            myMap.addMarker(marker);
         }
+
+        // 지도 컨트롤
+        LatLng sinsa = new LatLng(37.516066, 127.019361);
+        myMap.moveCamera(CameraUpdateFactory.newLatLngZoom(sinsa, 10));
+
         // 그리고 adapter 를 갱신해준다.
         adapter.notifyDataSetChanged();
+    }
+
+    GoogleMap myMap;
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        myMap = googleMap;
+
+        // 최초 호출시 첫번째 집합을 불러온다.
+        setPage(1);
+        setUrl(pageBegin, pageEnd);
+        Remote.newTask(this);
     }
 }

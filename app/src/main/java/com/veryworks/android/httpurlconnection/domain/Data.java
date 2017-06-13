@@ -15,17 +15,6 @@ public class Data {
         this.SearchPublicToiletPOIService = SearchPublicToiletPOIService;
     }
 
-
-
-
-
-
-
-
-
-
-
-
     @Override
     public String toString() {
         return "ClassPojo [SearchPublicToiletPOIService = "+SearchPublicToiletPOIService+"]";
