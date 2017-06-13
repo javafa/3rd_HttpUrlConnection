@@ -15,7 +15,7 @@ public class MainActivity extends AppCompatActivity implements TaskInterface{
         setContentView(R.layout.activity_main);
         textView = (TextView) findViewById(R.id.textView);
 
-        Task.newTask(this);
+        Remote.newTask(this);
     }
 
     @Override
