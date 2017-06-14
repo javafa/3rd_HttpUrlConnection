@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity
     static final String URL_MID    = "/json/SearchPublicToiletPOIService/";
     // 한 페이지에 불러오는 데이터 수
     static final int PAGE_OFFSET = 10;
-    int page = 1;
+    int page = 0;
 
     ListView listView;
     TextView textView;
@@ -50,23 +50,32 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        setViews();
+        setListener();
+        setMap();
+    }
+
+    private void setViews(){
         listView = (ListView) findViewById(R.id.listView);
         textView = (TextView) findViewById(R.id.textView);
 
-        // 데이터 - 위에서 공간 할당 됨
-        // 아답터
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1,datas);
         listView.setAdapter(adapter);
+    }
 
+    private void setListener(){
         // 스크롤의 상태값을 체크해주는 리스너
         listView.setOnScrollListener(scrollListener);
+    }
 
+    private void setMap(){
         // 맵을 세팅
         FragmentManager manager = getSupportFragmentManager();
         SupportMapFragment mapFragment = (SupportMapFragment) manager.findFragmentById(R.id.mapView);
         // 로드되면 onReady 호출하도록
         mapFragment.getMapAsync(this);
     }
+
 
     // 리스트의 마지막 아이템이 보이는지 여부
     boolean lastItemVisible = false;
@@ -76,17 +85,11 @@ public class MainActivity extends AppCompatActivity
         public void onScrollStateChanged(AbsListView view, int scrollState) {
             if(scrollState == AbsListView.OnScrollListener.SCROLL_STATE_IDLE
                     && lastItemVisible){
-                nextPage();
-                setUrl();
-                Remote.newTask(MainActivity.this);
+                loadPage();
             }
         }
-        // firstVisibleItem = 현재 보여지는 첫번째 아이템의 번호
-        // visibleItemCount = 현재 화면에 보여지는 아이템의 개수
-        // totalItemCount   = 리스트에 담겨있는 전체 아이템의 개수
         @Override
         public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-
             if(totalItemCount <= firstVisibleItem + visibleItemCount){
                 lastItemVisible = true;
             }else{
@@ -95,6 +98,13 @@ public class MainActivity extends AppCompatActivity
         }
     };
 
+    // 페이지를 로드
+    private void loadPage(){
+        nextPage();
+        setUrl();
+        Remote.newTask(MainActivity.this);
+    }
+
     private void nextPage(){
         page = page + 1;
     }
@@ -102,7 +112,6 @@ public class MainActivity extends AppCompatActivity
     private void setUrl(){
         int end = page * PAGE_OFFSET;
         int begin = end - PAGE_OFFSET + 1;
-
         url = URL_PREFIX + URL_CERT + URL_MID +begin+"/"+end;
     }
 
@@ -113,20 +122,40 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void postExecute(String jsonString){
-        Gson gson = new Gson();
-        // 1. json String -> class 로 변환
-        Data data = gson.fromJson(jsonString, Data.class);
 
-        // 총개수를 화면에 세팅
-        textView.setText("총 개수 : "+data.getSearchPublicToiletPOIService().getList_total_count());
-        // 건물의 이름을 listView 에 세팅
+        Data data = convertJson(jsonString);
 
-        Row rows[] = data.getSearchPublicToiletPOIService().getRow();
+        int totalCount = data.getSearchPublicToiletPOIService().getList_total_count();
+        Row items[] = data.getSearchPublicToiletPOIService().getRow();
 
-        // 네트웍에서 가져온 데이터를 꺼내서 datas에 담아준다.
-        for(Row row : rows){
-            datas.add(row.getFNAME());
+        setItemCount(totalCount);
 
+        addDatas(items);
+
+        addMarkers(items);
+
+        LatLng sinsa = new LatLng(37.516066, 127.019361);
+        moveMapPosition(sinsa);
+
+        // 그리고 adapter 를 갱신해준다.
+        adapter.notifyDataSetChanged();
+    }
+
+    // 지도 이동
+    private void moveMapPosition(LatLng position){
+        myMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 10));
+    }
+
+    // datas 에 데이터 더하기
+    private void addDatas(Row[] items){
+        for(Row item : items){
+            datas.add(item.getFNAME());
+        }
+    }
+
+    // 지도에 마커 생성
+    private void addMarkers(Row[] items){
+        for(Row row : items){
             // row를 돌면서 화장실 하나하나의 좌표를 생성한다.
             MarkerOptions marker = new MarkerOptions();
             LatLng tempCoord = new LatLng(row.getY_WGS84(), row.getX_WGS84());
@@ -135,22 +164,23 @@ public class MainActivity extends AppCompatActivity
 
             myMap.addMarker(marker);
         }
+    }
 
-        // 지도 컨트롤
-        LatLng sinsa = new LatLng(37.516066, 127.019361);
-        myMap.moveCamera(CameraUpdateFactory.newLatLngZoom(sinsa, 10));
+    // 총개수를 화면에 출력
+    private void setItemCount(int totalCount){
+        textView.setText("총 개수 : "+ totalCount);
+    }
 
-        // 그리고 adapter 를 갱신해준다.
-        adapter.notifyDataSetChanged();
+    // json 스트링을 Data 오브젝트로 변환
+    public Data convertJson(String jsonString){
+        Gson gson = new Gson();
+        return gson.fromJson(jsonString, Data.class);
     }
 
     GoogleMap myMap;
     @Override
     public void onMapReady(GoogleMap googleMap) {
         myMap = googleMap;
-
-        // 최초 호출시 첫번째 집합을 불러온다.
-        setUrl();
-        Remote.newTask(this);
+        loadPage();
     }
 }
