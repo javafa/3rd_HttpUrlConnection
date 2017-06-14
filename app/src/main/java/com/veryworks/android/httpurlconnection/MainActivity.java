@@ -3,6 +3,7 @@ package com.veryworks.android.httpurlconnection;
 import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
+import android.widget.AbsListView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -32,9 +33,7 @@ public class MainActivity extends AppCompatActivity
     static final String URL_MID    = "/json/SearchPublicToiletPOIService/";
     // 한 페이지에 불러오는 데이터 수
     static final int PAGE_OFFSET = 10;
-
-    int pageBegin = 1;
-    int pageEnd = 10;
+    int page = 1;
 
     ListView listView;
     TextView textView;
@@ -59,32 +58,51 @@ public class MainActivity extends AppCompatActivity
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1,datas);
         listView.setAdapter(adapter);
 
+        // 스크롤의 상태값을 체크해주는 리스너
+        listView.setOnScrollListener(scrollListener);
 
         // 맵을 세팅
         FragmentManager manager = getSupportFragmentManager();
         SupportMapFragment mapFragment = (SupportMapFragment) manager.findFragmentById(R.id.mapView);
         // 로드되면 onReady 호출하도록
         mapFragment.getMapAsync(this);
-
-
     }
 
-    private void setPage(int page){
-        pageEnd = page * PAGE_OFFSET;
-        pageBegin = pageEnd - PAGE_OFFSET + 1;
+    // 리스트의 마지막 아이템이 보이는지 여부
+    boolean lastItemVisible = false;
+    // 스크롤 리스너
+    AbsListView.OnScrollListener scrollListener = new AbsListView.OnScrollListener() {
+        @Override
+        public void onScrollStateChanged(AbsListView view, int scrollState) {
+            if(scrollState == AbsListView.OnScrollListener.SCROLL_STATE_IDLE
+                    && lastItemVisible){
+                nextPage();
+                setUrl();
+                Remote.newTask(MainActivity.this);
+            }
+        }
+        // firstVisibleItem = 현재 보여지는 첫번째 아이템의 번호
+        // visibleItemCount = 현재 화면에 보여지는 아이템의 개수
+        // totalItemCount   = 리스트에 담겨있는 전체 아이템의 개수
+        @Override
+        public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+
+            if(totalItemCount <= firstVisibleItem + visibleItemCount){
+                lastItemVisible = true;
+            }else{
+                lastItemVisible = false;
+            }
+        }
+    };
+
+    private void nextPage(){
+        page = page + 1;
     }
 
-    private void setUrl(int begin, int end){
-        // String
-        // StringBuffer
-        // StringBuilder
+    private void setUrl(){
+        int end = page * PAGE_OFFSET;
+        int begin = end - PAGE_OFFSET + 1;
 
-        // String 연산.........
-        // String result = "문자열" + "문자열" + "문자열";
-        //                  ----------------
-        //                    메모리공간 할당
-        //                   ---------------------------
-        //                         메모리공간 할당
         url = URL_PREFIX + URL_CERT + URL_MID +begin+"/"+end;
     }
 
@@ -132,8 +150,7 @@ public class MainActivity extends AppCompatActivity
         myMap = googleMap;
 
         // 최초 호출시 첫번째 집합을 불러온다.
-        setPage(1);
-        setUrl(pageBegin, pageEnd);
+        setUrl();
         Remote.newTask(this);
     }
 }
